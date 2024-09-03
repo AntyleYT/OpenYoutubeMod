@@ -9,10 +9,10 @@
    Go to : Banwords.json/banquestionss;json
      Add your banned words/questions like : 
 
-      ```{
+      {
           "banned_questions": [
               "exemple",
               "example",
               "what's ur number?",
           ]
-      }```
+      }
