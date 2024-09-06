@@ -181,31 +181,31 @@ def process_chat_messages(youtube, chat_id, banned_words, banned_questions):
             snippet = message['snippet']
             print("Message:", snippet)  # Impression pour débogage
 
-            # Récupérer l'ID du message directement à partir du message
-            message_id = message.get('id')
-            if not message_id:
-                print("Aucun 'id' trouvé pour ce message, il sera ignoré.")
-                continue  # Passer au message suivant
+            # Vérification si 'displayMessage' est présent dans le message
+            if 'displayMessage' in snippet:
+                message_text = snippet['displayMessage']
+                message_id = message['id']
+                author_channel_id = snippet.get('authorChannelId', 'N/A')
 
-            message_text = snippet['displayMessage']
-            author_channel_id = snippet.get('authorChannelId', 'N/A')
+                user_name = get_channel_name(youtube, author_channel_id) if author_channel_id != 'N/A' else 'Utilisateur inconnu'
 
-            user_name = get_channel_name(youtube, author_channel_id) if author_channel_id != 'N/A' else 'Utilisateur inconnu'
+                if any(word in message_text.lower() for word in banned_words):
+                    delete_message(youtube, chat_id, message_id)
+                    response_text = f"@{user_name}, merci de ne pas mettre ce genre de mots."
+                    send_message(youtube, chat_id, response_text)
 
-            if any(word in message_text.lower() for word in banned_words):
-                delete_message(youtube, chat_id, message_id)
-                response_text = MESSAGES[LANGUAGE]['delete_message_warning'].format(user_name=user_name)
-                send_message(youtube, chat_id, response_text)
-
-            elif any(question in message_text.lower() for question in banned_questions):
-                delete_message(youtube, chat_id, message_id)
-                response_text = MESSAGES[LANGUAGE]['delete_question_warning'].format(user_name=user_name)
-                send_message(youtube, chat_id, response_text)
+                elif any(question in message_text.lower() for question in banned_questions):
+                    delete_message(youtube, chat_id, message_id)
+                    response_text = f"@{user_name}, merci de ne pas posez ce genre de question."
+                    send_message(youtube, chat_id, response_text)
+            else:
+                print(f"Le message {message['id']} n'a pas de champ 'displayMessage'. Ignoré.")
 
         next_page_token = response.get('nextPageToken')
         if not next_page_token:
             break
-        time.sleep(1)  # Attendre avant de vérifier à nouveau les messages
+        time.sleep(5)  # Attendre avant de vérifier à nouveau les messages
+
 
 def ask_for_moderators():
     moderators = {}
@@ -220,16 +220,13 @@ def ask_for_moderators():
         json.dump(moderators, file, indent=4)
 
 def main():
-    # Définir le contenu par défaut pour les fichiers
     default_banwords = {'banned_words': []}
     default_banquestions = {'banned_questions': []}
     default_moderators = {}
 
-    # Charger les listes de mots bannis et de questions bannies
     banned_words = load_ban_list(BANWORDS_FILE, default_banwords)['banned_words']
     banned_questions = load_ban_list(BANQUESTIONS_FILE, default_banquestions)['banned_questions']
 
-    # Demander l'URL du stream
     stream_url = input(MESSAGES[LANGUAGE]['enter_stream_url']).strip()
     live_video_id = get_youtube_video_id(stream_url)
 
@@ -237,10 +234,8 @@ def main():
         print(MESSAGES[LANGUAGE]['invalid_url'])
         return
 
-    # Demander les ID des modérateurs/propriétaires
     ask_for_moderators()
 
-    # Authentifier et configurer YouTube
     youtube = authenticate_youtube()
     chat_id = get_live_chat_id(youtube, live_video_id)
 
@@ -248,7 +243,7 @@ def main():
         print(MESSAGES[LANGUAGE]['live_chat_id'].format(chat_id=chat_id))
         while True:
             process_chat_messages(youtube, chat_id, banned_words, banned_questions)
-            time.sleep(30)  # Vérifier les messages toutes les 30 secondes
+            time.sleep(30)
     else:
         print(MESSAGES[LANGUAGE]['no_live_chat_id'])
 
